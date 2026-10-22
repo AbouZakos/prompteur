@@ -1,0 +1,15 @@
+{
+  "name": "prompteur-arabe-facile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Prompteur PWA pour iPad (Safari 15) — L'Arabe Facile",
+  "scripts": {
+    "serve": "node tests/serve.js",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@fontsource/amiri": "^5.3.0",
+    "@playwright/test": "^1.64.1",
+    "mammoth": "^1.13.0"
+  }
+}

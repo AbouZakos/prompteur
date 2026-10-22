@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Prompteur</title>
+<meta name="description" content="Prompteur L'Arabe Facile, pour iPad, avec pédale Bluetooth et effet miroir.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Prompteur">
+<meta name="theme-color" content="#000000">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-180.png">
+<link rel="preload" href="fonts/amiri-arabic-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Zone de lecture : tout ce qui est dans #miroir est lu dans la vitre (donc inversé) -->
+<div id="scene" tabindex="0" aria-label="Texte du prompteur">
+  <div id="miroir">
+    <div id="fenetre">
+      <div id="texte"></div>
+    </div>
+    <div id="ligne-lecture"></div>
+    <div id="hud"><span id="voyant" class="pause"></span><span id="restant"></span></div>
+    <div id="progression"><div id="progression-barre"></div></div>
+    <div id="decompte" hidden></div>
+  </div>
+</div>
+
+<!-- Barre de commandes (jamais inversée) -->
+<div id="commandes">
+  <button type="button" id="btn-debut" class="cmd" title="Revenir au début">⏮︎<span>Début</span></button>
+  <div id="groupe-vitesse">
+    <button type="button" id="btn-moins" class="cmd rond" aria-label="Moins vite">−</button>
+    <div class="vitesse-affichage"><span id="vitesse-valeur">60</span><small>vitesse</small></div>
+    <button type="button" id="btn-plus" class="cmd rond" aria-label="Plus vite">+</button>
+  </div>
+  <button type="button" id="btn-lecture" class="cmd principal">▶︎ Lire</button>
+  <button type="button" id="btn-scripts" class="cmd">☰<span>Scripts</span></button>
+  <button type="button" id="btn-reglages" class="cmd">⚙︎<span>Réglages</span></button>
+</div>
+
+<!-- Réglages : tiroir à droite, pour voir l'aperçu du texte en direct -->
+<section id="panneau-reglages" class="panneau tiroir" hidden aria-label="Réglages">
+  <header>
+    <h2>Réglages</h2>
+    <button type="button" class="cmd fermer" data-fermer>Fermer</button>
+  </header>
+  <div class="corps">
+
+    <h3>Pédale</h3>
+    <p id="pedale-etat" class="note"></p>
+    <div class="rangee">
+      <button type="button" id="btn-apprendre" class="cmd large">Apprendre ma pédale</button>
+      <button type="button" id="btn-oublier" class="cmd large">Toutes les touches</button>
+    </div>
+
+    <h3>Lecture</h3>
+    <label class="curseur"><span>Vitesse <output id="r-vitesse-val"></output></span>
+      <input type="range" id="r-vitesse" min="10" max="400" step="5"></label>
+    <label class="interrupteur"><span>Compte à rebours (3 s)</span><input type="checkbox" id="r-decompte"><i></i></label>
+    <label class="interrupteur"><span>Ligne de lecture</span><input type="checkbox" id="r-ligne"><i></i></label>
+
+    <h3>Texte</h3>
+    <label class="curseur"><span>Taille du texte <output id="r-taille-val"></output></span>
+      <input type="range" id="r-taille" min="20" max="160" step="2"></label>
+    <label class="curseur"><span>Taille de l'arabe <output id="r-arabe-val"></output></span>
+      <input type="range" id="r-arabe" min="1" max="2" step="0.05"></label>
+    <label class="curseur"><span>Interligne <output id="r-interligne-val"></output></span>
+      <input type="range" id="r-interligne" min="1.1" max="2.2" step="0.05"></label>
+    <label class="curseur"><span>Marges latérales <output id="r-marges-val"></output></span>
+      <input type="range" id="r-marges" min="0" max="30" step="1"></label>
+
+    <h3>Miroir</h3>
+    <label class="interrupteur"><span>Miroir horizontal</span><input type="checkbox" id="r-miroirH"><i></i></label>
+    <label class="interrupteur"><span>Miroir vertical</span><input type="checkbox" id="r-miroirV"><i></i></label>
+
+    <h3>Couleurs</h3>
+    <div class="rangee">
+      <button type="button" class="cmd large theme" data-theme="sombre">Fond noir, texte blanc</button>
+      <button type="button" class="cmd large theme" data-theme="clair">Fond blanc, texte noir</button>
+    </div>
+
+    <div id="bloc-plein-ecran" hidden>
+      <h3>Écran</h3>
+      <button type="button" id="btn-plein-ecran" class="cmd large">Plein écran</button>
+    </div>
+
+    <h3>Aide</h3>
+    <ul class="aide">
+      <li><b>Pédale ou toucher l'écran</b> : pause / reprise.</li>
+      <li><b>Glisser du doigt</b> pendant la pause : remonter ou avancer dans le texte.</li>
+      <li><b>La pédale ne répond pas ?</b> Touche l'écran une fois, vérifie qu'aucun clavier n'est affiché à l'écran, puis refais « Apprendre ma pédale ».</li>
+      <li><b>L'écran s'éteint ?</b> En secours, va dans Réglages de l'iPad &gt; Luminosité et affichage &gt; Verrouillage automatique &gt; <b>Jamais</b>.</li>
+      <li>Le texte se lit à l'endroit dans la vitre : sur l'iPad lui-même, il apparaît inversé, c'est normal.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- Bibliothèque de scripts -->
+<section id="panneau-scripts" class="panneau plein" hidden aria-label="Mes scripts">
+  <header>
+    <h2>Mes scripts</h2>
+    <label class="cmd principal fichier">☁️&nbsp;Importer depuis iCloud
+      <input type="file" id="icloud-fichier" multiple accept=".txt,.docx,.rtf,.md,.pages,text/plain,text/rtf,application/rtf,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></label>
+    <button type="button" id="btn-nouveau" class="cmd">＋ Coller un texte</button>
+    <button type="button" class="cmd fermer" data-fermer>Fermer</button>
+  </header>
+  <div class="corps">
+    <p id="scripts-message" class="note" hidden></p>
+    <p id="scripts-vide" class="note" hidden>Aucun script enregistré. Touche « Importer depuis iCloud » ou « Coller un texte ».</p>
+    <ul id="liste-scripts"></ul>
+  </div>
+</section>
+
+<!-- Import d'un nouveau script -->
+<section id="panneau-import" class="panneau plein" hidden aria-label="Coller un texte">
+  <header>
+    <h2>Coller un texte</h2>
+    <button type="button" class="cmd fermer" data-fermer>Fermer</button>
+  </header>
+  <div class="corps">
+    <label class="champ"><span>Titre (facultatif : sinon, la première ligne du texte)</span>
+      <input type="text" id="import-titre" autocomplete="off" placeholder="Titre du script"></label>
+    <label class="champ"><span>Colle ton texte ici</span>
+      <textarea id="import-texte" placeholder="Colle ici le texte de ton script…"></textarea></label>
+    <div class="rangee">
+      <button type="button" id="btn-enregistrer" class="cmd large principal">Enregistrer et lire</button>
+    </div>
+    <p id="import-message" class="note"></p>
+  </div>
+</section>
+
+<!-- Écran d'accueil : le premier toucher donne le focus (pédale) et empêche la mise en veille -->
+<div id="accueil">
+  <div>
+    <div class="accueil-icone">👆</div>
+    <p class="accueil-titre">Touche l'écran une fois pour activer la pédale</p>
+    <p class="accueil-sous">Ensuite : pédale ou toucher = pause / reprise</p>
+  </div>
+</div>
+
+<div id="message" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
