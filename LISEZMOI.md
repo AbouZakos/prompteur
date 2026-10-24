@@ -52,9 +52,16 @@ fichiers.
 
 ### Mettre à jour l'application plus tard
 
-Remplace les fichiers modifiés dans GitHub (même méthode qu'à l'étape 2). Sur l'iPad, la
-nouvelle version apparaît à la **deuxième** ouverture de l'application, avec Internet : la
-première ouverture télécharge la mise à jour en arrière-plan.
+Remplace les fichiers modifiés dans GitHub (même méthode qu'à l'étape 2).
+
+Sur l'iPad, **rien à réinstaller** : la mise à jour est automatique.
+1. Ouvre l'application avec le Wi-Fi : elle télécharge la nouvelle version en arrière-plan.
+2. Ferme-la complètement : balaye vers le haut depuis le bas de l'écran, puis balaye la
+   fenêtre du Prompteur vers le haut.
+3. Rouvre-la : la nouvelle version est là.
+
+⚠️ **Ne supprime pas l'application de l'écran d'accueil pour la mettre à jour** : ça
+effacerait tous les scripts importés et tes réglages.
 
 ---
 
@@ -173,7 +180,8 @@ originaux restent dans iCloud Drive : il suffit de les réimporter.
 | Action | Effet |
 |---|---|
 | **Pédale** | Pause / reprise |
-| **Toucher l'écran** | Pause / reprise (en secours) |
+| **Toucher l'écran** | Afficher ou masquer la barre de commandes (le texte continue de défiler) |
+| **Bouton Pause / Lire** de la barre | Pause / reprise, si la pédale ne répond pas |
 | **Glisser du doigt** (en pause) | Remonter ou avancer dans le texte |
 | **−** et **+** | Ralentir / accélérer, même pendant la lecture |
 | **Début** | Revenir au début du script |
@@ -182,7 +190,10 @@ originaux restent dans iCloud Drive : il suffit de les réimporter.
 En haut s'affiche aussi le **temps restant** à la vitesse actuelle. En bas, une fine barre
 montre ta progression dans le script.
 
-Pendant la lecture, les boutons disparaissent : il ne reste que **− vitesse +**, très discret.
+**La barre de commandes** disparaît d'elle-même **3 secondes après le départ**. Elle ne
+revient que si tu **touches l'écran**, jamais avec la pédale. Pendant la lecture, elle repart
+seule 3 secondes plus tard. En pause, elle reste affichée jusqu'à ce que tu touches de nouveau
+l'écran.
 
 L'application retient le **dernier script ouvert** et **l'endroit où tu t'es arrêté**.
 
@@ -219,7 +230,7 @@ Essaie dans cet ordre :
 5. Si rien n'y fait : **Réglages > Toutes les touches**, puis ferme l'application (balaye-la
    vers le haut dans le sélecteur d'applications) et rouvre-la.
 
-En attendant, **toucher l'écran** fait aussi pause / reprise.
+En attendant, **touche l'écran** pour afficher la barre, puis utilise son bouton **Pause / Lire**.
 
 ---
 

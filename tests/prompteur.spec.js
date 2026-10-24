@@ -295,8 +295,7 @@ test('les réglages sont mémorisés après rechargement', async ({ page }) => {
 test('vitesse réglable pendant la lecture avec − et +', async ({ page }) => {
   await ouvrir(page);
   await page.keyboard.press('Space');
-  await expect(page.locator('#btn-plus')).toBeVisible();
-  await expect(page.locator('#btn-reglages')).toBeHidden();       // réglages masqués pendant la lecture
+  await expect(page.locator('#btn-plus')).toBeVisible();          // la barre reste 3 s après le départ
   await page.click('#btn-plus');
   await page.click('#btn-plus');
   await expect(page.locator('#vitesse-valeur')).toHaveText('70');
@@ -305,13 +304,61 @@ test('vitesse réglable pendant la lecture avec − et +', async ({ page }) => {
   await expect(page.locator('#vitesse-valeur')).toHaveText('65');
 });
 
-test('toucher l’écran = pause / reprise ; glisser en pause déplace le texte', async ({ page }) => {
+test('la barre disparaît 3 s après le départ ; la pédale ne la fait jamais revenir', async ({ page }) => {
   await ouvrir(page);
-  await page.mouse.click(500, 300);
+  const barre = page.locator('#commandes');
+  await expect(barre).toBeVisible();                               // au repos, au lancement
+  await page.keyboard.press('Space');
+  await attendre(page, 2000);
+  await expect(barre).toBeVisible();                               // pas encore
+  await expect(barre).toBeHidden({ timeout: 2500 });               // partie d'elle-même
   expect((await etat(page)).lecture).toBe(true);
-  await page.mouse.click(500, 300);
-  expect((await etat(page)).lecture).toBe(false);
 
+  // Pause puis reprise à la pédale : la barre reste cachée.
+  await page.keyboard.press('Space');
+  expect((await etat(page)).lecture).toBe(false);
+  await attendre(page, 800);
+  await expect(barre).toBeHidden();
+  await page.keyboard.press('Space');
+  expect((await etat(page)).lecture).toBe(true);
+  await attendre(page, 500);
+  await expect(barre).toBeHidden();
+});
+
+test('toucher l’écran affiche la barre sans arrêter le texte, puis elle repart seule', async ({ page }) => {
+  await ouvrir(page);
+  await page.keyboard.press('Space');
+  await expect(page.locator('#commandes')).toBeHidden({ timeout: 4000 });
+
+  await page.mouse.click(500, 300);
+  await expect(page.locator('#commandes')).toBeVisible();
+  expect((await etat(page)).lecture).toBe(true);                  // le toucher n'a pas mis en pause
+  await expect(page.locator('#commandes')).toBeHidden({ timeout: 4000 });
+
+  // Toucher de nouveau quand elle est affichée : elle se cache tout de suite.
+  await page.mouse.click(500, 300);
+  await expect(page.locator('#commandes')).toBeVisible();
+  await page.mouse.click(500, 300);
+  await expect(page.locator('#commandes')).toBeHidden();
+  expect((await etat(page)).lecture).toBe(true);
+});
+
+test('en pause, la barre affichée au toucher reste, et le bouton Pause/Lire fonctionne', async ({ page }) => {
+  await ouvrir(page);
+  await page.keyboard.press('Space');
+  await expect(page.locator('#commandes')).toBeHidden({ timeout: 4000 });
+  await page.keyboard.press('Space');                              // pause à la pédale
+  await page.mouse.click(500, 300);                               // toucher : la barre revient
+  await expect(page.locator('#commandes')).toBeVisible();
+  await attendre(page, 3500);
+  await expect(page.locator('#commandes')).toBeVisible();          // en pause, elle ne part pas seule
+  await page.click('#btn-lecture');
+  expect((await etat(page)).lecture).toBe(true);
+  await expect(page.locator('#commandes')).toBeHidden({ timeout: 4000 });
+});
+
+test('glisser du doigt en pause déplace le texte', async ({ page }) => {
+  await ouvrir(page);
   const avant = (await etat(page)).pos;
   await page.mouse.move(500, 500);
   await page.mouse.down();
@@ -321,6 +368,7 @@ test('toucher l’écran = pause / reprise ; glisser en pause déplace le texte'
   const apres = await etat(page);
   expect(apres.lecture).toBe(false);
   expect(apres.pos).toBeGreaterThan(avant + 150);
+  await expect(page.locator('#commandes')).toBeVisible();          // un glissé ne cache pas la barre
 });
 
 test('compte à rebours de 3 s, puis « Revenir au début »', async ({ page }) => {
@@ -338,6 +386,7 @@ test('compte à rebours de 3 s, puis « Revenir au début »', async ({ page }) 
   await attendre(page, 500);
   await page.keyboard.press('Space');
   expect((await etat(page)).pos).toBeGreaterThan(0);
+  await page.mouse.click(500, 300);                               // la barre était partie
   await page.click('#btn-debut');
   expect((await etat(page)).pos).toBe(0);
 });

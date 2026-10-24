@@ -18,6 +18,7 @@
   var VITESSE_MIN = 10;
   var VITESSE_MAX = 400;
   var PAS_VITESSE = 5;
+  var DELAI_BARRE_MS = 3000;  // la barre de commandes disparaît 3 s après le départ
 
   // Touches envoyées par les pédales « page turner » (elles se comportent comme un clavier).
   var TOUCHES_DEFAUT = [' ', 'Spacebar', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
@@ -226,6 +227,7 @@
     derniereSauvegarde: 0,
     apprentissage: false,
     minuterieApprentissage: null,
+    minuterieBarre: null,
     scriptId: null,
     accueil: true
   };
@@ -267,6 +269,7 @@
       etat.pos = etat.max;
       appliquerPosition();
       pause();
+      afficherBarre(false);   // fin du script : on montre la barre
       return;
     }
     appliquerPosition();
@@ -301,6 +304,24 @@
     if (etat.pos >= etat.max - 1) { etat.pos = 0; appliquerPosition(); }
     if (reglages.decompte && etat.pos < 1) lancerDecompte();
     else demarrerDefilement();
+    if (barreVisible()) afficherBarre(true);
+  }
+
+  // ---------- Barre de commandes ----------
+  // Elle disparaît d'elle-même après le départ, et ne revient qu'en touchant l'écran :
+  // la pédale met seulement en pause / relance, sans jamais la faire apparaître.
+
+  function barreVisible() { return !document.body.classList.contains('barre-cachee'); }
+
+  function afficherBarre(masquerEnsuite) {
+    clearTimeout(etat.minuterieBarre);
+    document.body.classList.remove('barre-cachee');
+    if (masquerEnsuite) etat.minuterieBarre = setTimeout(masquerBarre, DELAI_BARRE_MS);
+  }
+
+  function masquerBarre() {
+    clearTimeout(etat.minuterieBarre);
+    document.body.classList.add('barre-cachee');
   }
 
   function basculer() {
@@ -348,7 +369,6 @@
 
   function majInterfaceLecture() {
     var actif = etat.lecture || !!etat.decompte;
-    document.body.classList.toggle('en-lecture', actif);
     el.voyant.className = etat.decompte ? 'decompte' : (etat.lecture ? 'lecture' : 'pause');
     el.btnLecture.textContent = actif ? '❚❚ Pause' : '▶︎ Lire';
   }
@@ -515,7 +535,7 @@
     if (estTouchePedale(e)) e.preventDefault();
   }
 
-  // ---------- Toucher : tap = pause / reprise, glisser = se déplacer (en pause) ----------
+  // ---------- Toucher : tap = afficher / masquer la barre, glisser = se déplacer (en pause) ----------
 
   var geste = null;
 
@@ -548,7 +568,8 @@
     if (g.glisse) { memoriserPosition(); return; }
     if (Math.abs(e.clientX - g.x) > SEUIL_GLISSE_PX || Math.abs(e.clientY - g.y) > SEUIL_GLISSE_PX) return;
     if (panneauOuvert()) { fermerPanneaux(); return; }
-    basculer();
+    if (barreVisible()) masquerBarre();
+    else afficherBarre(etat.lecture || !!etat.decompte);
   }
 
   // ---------- Garder l'écran allumé (iPadOS 15 n'a pas Wake Lock) ----------
@@ -973,8 +994,12 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-fermer]'), function (b) {
       b.addEventListener('click', fermerPanneaux);
     });
-    // Après un bouton de la barre, le focus revient au prompteur (pour la pédale).
-    $('commandes').addEventListener('click', function () { el.scene.focus(); });
+    // Après un bouton de la barre, le focus revient au prompteur (pour la pédale), et si le texte
+    // défile, la barre repart 3 s plus tard.
+    $('commandes').addEventListener('click', function () {
+      el.scene.focus();
+      if (barreVisible()) afficherBarre(etat.lecture || !!etat.decompte);
+    });
 
     CURSEURS.forEach(function (c) {
       $(c.id).addEventListener('input', function (e) {

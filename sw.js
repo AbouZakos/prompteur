@@ -3,7 +3,7 @@
  * Stratégie : on répond depuis le cache (instantané, marche sans Internet) et on met
  * le cache à jour en arrière-plan ; une nouvelle version apparaît donc au lancement suivant.
  */
-var CACHE = 'prompteur-v2';
+var CACHE = 'prompteur-v3';
 var FICHIERS = [
   './',
   'index.html',

@@ -259,13 +259,18 @@ button, .cmd {
   color: var(--ui-doux);
 }
 
-/* Pendant la lecture : il ne reste que − vitesse +, très discret. */
-body.en-lecture #commandes {
-  background: transparent;
-  box-shadow: none;
+/* Barre masquée (3 s après le départ) : elle revient en touchant l'écran. */
+#commandes {
+  -webkit-transition: opacity 0.4s, visibility 0s linear 0s;
+  transition: opacity 0.4s, visibility 0s linear 0s;
 }
-body.en-lecture #commandes > *:not(#groupe-vitesse) { display: none; }
-body.en-lecture #groupe-vitesse { opacity: 0.35; }
+body.barre-cachee #commandes {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  -webkit-transition: opacity 0.4s, visibility 0s linear 0.4s;
+  transition: opacity 0.4s, visibility 0s linear 0.4s;
+}
 
 /* ---------- Panneaux ---------- */
 
