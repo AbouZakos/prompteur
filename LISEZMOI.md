@@ -100,15 +100,26 @@ du texte.
 
 ### Apprendre ta pédale à l'application (conseillé)
 
-Par défaut, l'application réagit aux touches Espace, Entrée, flèches, Page précédente et Page
-suivante. Ça suffit pour la plupart des pédales. Pour qu'elle ne réagisse **qu'à ta pédale** :
+Par défaut, tous les boutons de la pédale font **pause / reprise** : l'application réagit aux
+touches Espace, Entrée, flèches, Page précédente et Page suivante.
+
+Si ta pédale a **deux boutons**, apprends-les à l'application. Le premier fera **pause /
+reprise**, le second **retour en arrière** (pour remonter le texte quand tu t'es trompé) :
 
 1. Ouvre l'application et touche l'écran une fois.
 2. Touche **Réglages**, puis **Apprendre ma pédale**.
-3. Appuie sur la pédale. Le message « Pédale enregistrée : … » s'affiche.
-4. Touche **Fermer**.
+3. **Étape 1/2** : appuie sur le bouton qui doit faire **pause / reprise**.
+4. **Étape 2/2** : appuie sur l'**autre** bouton, celui du **retour en arrière**.
+   Pédale à un seul bouton : touche **Pas de 2e bouton**.
+5. Le message « Pédale enregistrée : … » s'affiche. Touche **Fermer**.
 
-Pour revenir au réglage par défaut : **Réglages > Toutes les touches**.
+**Le retour en arrière :**
+- **Un appui** fait remonter le texte de 3 lignes. Tu peux changer ce nombre dans **Réglages >
+  Retour en arrière, à chaque appui** (de 1 à 10 lignes).
+- **Un appui maintenu** fait remonter le texte en continu, jusqu'à ce que tu relâches.
+- Si le texte défilait, **il continue de défiler**. S'il était en pause, **il reste en pause**.
+
+Pour revenir au réglage de départ : **Réglages > Réglage par défaut**.
 
 ---
 
@@ -179,12 +190,14 @@ originaux restent dans iCloud Drive : il suffit de les réimporter.
 
 | Action | Effet |
 |---|---|
-| **Pédale** | Pause / reprise |
+| **Pédale, 1er bouton** | Pause / reprise |
+| **Pédale, 2e bouton** | Retour en arrière (appui maintenu : remonte en continu) |
 | **Toucher l'écran** | Afficher ou masquer la barre de commandes (le texte continue de défiler) |
 | **Bouton Pause / Lire** de la barre | Pause / reprise, si la pédale ne répond pas |
 | **Glisser du doigt** (en pause) | Remonter ou avancer dans le texte |
 | **−** et **+** | Ralentir / accélérer, même pendant la lecture |
 | **Début** | Revenir au début du script |
+| **✕ Fermer** | Fermer le script et revenir à la liste « Mes scripts » (le script n'est pas supprimé) |
 | **Point rouge / vert** (en haut) | Rouge : en pause. Vert : le texte défile. Orange : compte à rebours |
 
 En haut s'affiche aussi le **temps restant** à la vitesse actuelle. En bas, une fine barre
@@ -227,7 +240,7 @@ Essaie dans cet ordre :
 3. Vérifie que la pédale est **allumée et connectée** (Réglages > Bluetooth), et que ses piles
    ou sa batterie ne sont pas vides.
 4. Refais **Réglages > Apprendre ma pédale**.
-5. Si rien n'y fait : **Réglages > Toutes les touches**, puis ferme l'application (balaye-la
+5. Si rien n'y fait : **Réglages > Réglage par défaut**, puis ferme l'application (balaye-la
    vers le haut dans le sélecteur d'applications) et rouvre-la.
 
 En attendant, **touche l'écran** pour afficher la barre, puis utilise son bouton **Pause / Lire**.

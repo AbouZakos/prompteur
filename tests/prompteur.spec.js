@@ -110,9 +110,12 @@ test('« Apprendre ma pédale » : seule la touche apprise réagit', async ({ pa
   await ouvrir(page);
   await page.click('#btn-reglages');
   await page.click('#btn-apprendre');
-  await expect(page.locator('#pedale-etat')).toContainText('Appuie maintenant');
+  await expect(page.locator('#pedale-etat')).toContainText('PAUSE / REPRISE');
   await page.keyboard.press('PageDown');
-  await expect(page.locator('#pedale-etat')).toContainText('Page suivante');
+  await expect(page.locator('#pedale-etat')).toContainText('RETOUR EN ARRIÈRE');
+  await page.click('#btn-apprendre');                       // « Pas de 2e bouton »
+  await expect(page.locator('#pedale-etat')).toContainText('Pause / reprise : « Page suivante »');
+  await expect(page.locator('#pedale-etat')).toContainText('Retour en arrière : aucun bouton');
   // L'appui d'apprentissage ne lance pas la lecture.
   expect((await etat(page)).lecture).toBe(false);
   await page.locator('#panneau-reglages [data-fermer]').click();
@@ -135,6 +138,137 @@ test('« Apprendre ma pédale » : seule la touche apprise réagit', async ({ pa
   expect((await etat(page)).lecture).toBe(false);
   await page.keyboard.press('PageDown');      // > 300 ms après le précédent appui
   expect((await etat(page)).lecture).toBe(true);
+});
+
+// Apprend une pédale à deux boutons : PageDown = pause / reprise, PageUp = retour en arrière.
+async function apprendreDeuxBoutons(page) {
+  await page.click('#btn-reglages');
+  await page.click('#btn-apprendre');
+  await page.keyboard.press('PageDown');
+  await attendre(page, 450);
+  await page.keyboard.press('PageDown');                    // même bouton : refusé avec une explication
+  await expect(page.locator('#pedale-etat')).toContainText('l’AUTRE bouton');
+  await page.keyboard.press('PageUp');
+  await expect(page.locator('#pedale-etat')).toContainText('Retour en arrière : « Page précédente »');
+  await page.locator('#panneau-reglages [data-fermer]').click();
+  await attendre(page, 350);
+}
+
+// Long texte, pour avoir de la place pour avancer et reculer.
+async function collerLongTexte(page) {
+  await page.click('#btn-scripts');
+  await page.click('#btn-nouveau');
+  await page.fill('#import-texte', ['Script long'].concat(Array.from({ length: 80 }, (_, i) => `Paragraphe numéro ${i + 1} du script.`)).join('\n\n'));
+  await page.click('#btn-enregistrer');
+}
+
+// Avance dans le texte en glissant du doigt (au-dessus de la barre du bas).
+async function avancer(page, fois) {
+  for (let i = 0; i < fois; i++) {
+    await page.mouse.move(500, 600);
+    await page.mouse.down();
+    await page.mouse.move(500, 350, { steps: 5 });
+    await page.mouse.move(500, 100, { steps: 5 });
+    await page.mouse.up();
+  }
+}
+
+test('pédale à deux boutons : le 2e fait revenir en arrière, en pause comme en lecture', async ({ page }) => {
+  await ouvrir(page);
+  await collerLongTexte(page);
+  await apprendreDeuxBoutons(page);
+  const ligne = 56 * 1.5;
+
+  // En pause : on avance à la main, puis un appui remonte de 3 lignes, sans relancer.
+  await avancer(page, 4);
+  const depart = (await etat(page)).pos;
+  expect(depart).toBeGreaterThan(15 * ligne);
+  await page.keyboard.press('PageUp');
+  await attendre(page, 500);
+  let e = await etat(page);
+  expect(e.lecture).toBe(false);
+  expect(depart - e.pos).toBeCloseTo(3 * ligne, 0);
+  await expect(page.locator('#commandes')).toBeVisible();          // la barre n'a pas bougé
+
+  // Réglage : 5 lignes par appui.
+  await page.click('#btn-reglages');
+  await page.locator('#r-recul').fill('5');
+  await expect(page.locator('#r-recul-val')).toHaveText('5 lignes');
+  await page.locator('#panneau-reglages [data-fermer]').click();
+  const avant = (await etat(page)).pos;
+  await page.keyboard.press('PageUp');
+  await attendre(page, 500);
+  expect(avant - (await etat(page)).pos).toBeCloseTo(5 * ligne, 0);
+
+  // En lecture : on recule et la lecture continue.
+  await page.keyboard.press('PageDown');
+  expect((await etat(page)).lecture).toBe(true);
+  await attendre(page, 400);
+  const enLecture = (await etat(page)).pos;
+  await page.keyboard.press('PageUp');
+  await attendre(page, 400);
+  e = await etat(page);
+  expect(e.lecture).toBe(true);
+  expect(e.pos).toBeLessThan(enLecture - 3 * ligne);
+  await attendre(page, 500);
+  expect((await etat(page)).pos).toBeGreaterThan(e.pos);           // ça redéfile
+
+  // Mémorisé après rechargement.
+  await page.reload();
+  await page.waitForSelector('html[data-pret]');
+  await page.click('#accueil');
+  const p0 = (await etat(page)).pos;
+  await page.keyboard.press('PageUp');
+  await attendre(page, 500);
+  expect((await etat(page)).pos).toBeLessThan(p0);
+  expect((await etat(page)).lecture).toBe(false);
+});
+
+test('retour en arrière maintenu : remonte en continu jusqu’au relâchement', async ({ page }) => {
+  await ouvrir(page);
+  await collerLongTexte(page);
+  await apprendreDeuxBoutons(page);
+  await avancer(page, 6);
+  const depart = (await etat(page)).pos;
+
+  await page.keyboard.down('PageUp');
+  await attendre(page, 1300);
+  await page.keyboard.up('PageUp');
+  const relache = (await etat(page)).pos;
+  expect(depart - relache).toBeGreaterThan(5 * 56 * 1.5);         // plus qu'un simple appui
+  await attendre(page, 500);
+  expect((await etat(page)).pos).toBeCloseTo(relache, 0);           // s'arrête au relâchement
+});
+
+test('sans 2e bouton appris, les touches par défaut gardent pause / reprise', async ({ page }) => {
+  await ouvrir(page);
+  await page.keyboard.press('PageUp');
+  expect((await etat(page)).lecture).toBe(true);
+});
+
+test('bouton Fermer : ferme le script et affiche la liste', async ({ page }) => {
+  await ouvrir(page);
+  await page.keyboard.press('Space');
+  await attendre(page, 400);
+  await page.click('#btn-fermer');
+  const e = await etat(page);
+  expect(e.lecture).toBe(false);
+  expect(e.scriptId).toBe(null);
+  await expect(page.locator('#panneau-scripts')).toBeVisible();
+  await expect(page.locator('#texte p.vide')).toBeVisible();
+  await expect(page.locator('#liste-scripts li')).toHaveCount(1);   // le script n'est pas supprimé
+
+  // Au prochain lancement, il ne se rouvre pas tout seul.
+  await page.reload();
+  await page.waitForSelector('html[data-pret]');
+  await expect(page.locator('#texte p.vide')).toBeVisible();
+
+  // On le rouvre depuis la liste : il reprend où on s'était arrêté.
+  await page.click('#accueil');
+  await page.click('#btn-scripts');
+  await page.getByRole('button', { name: 'Ouvrir' }).click();
+  await expect(page.locator('#texte p.titre')).toBeVisible();
+  expect((await etat(page)).pos).toBeGreaterThan(0);
 });
 
 test('miroir horizontal par défaut, vertical en option, réglages jamais inversés', async ({ page }) => {

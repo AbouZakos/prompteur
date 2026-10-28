@@ -43,6 +43,7 @@
   <button type="button" id="btn-lecture" class="cmd principal">▶︎ Lire</button>
   <button type="button" id="btn-scripts" class="cmd">☰<span>Scripts</span></button>
   <button type="button" id="btn-reglages" class="cmd">⚙︎<span>Réglages</span></button>
+  <button type="button" id="btn-fermer" class="cmd" title="Fermer le script et revenir à la liste">✕<span>Fermer</span></button>
 </div>
 
 <!-- Réglages : tiroir à droite, pour voir l'aperçu du texte en direct -->
@@ -57,8 +58,10 @@
     <p id="pedale-etat" class="note"></p>
     <div class="rangee">
       <button type="button" id="btn-apprendre" class="cmd large">Apprendre ma pédale</button>
-      <button type="button" id="btn-oublier" class="cmd large">Toutes les touches</button>
+      <button type="button" id="btn-oublier" class="cmd large">Réglage par défaut</button>
     </div>
+    <label class="curseur"><span>Retour en arrière, à chaque appui <output id="r-recul-val"></output></span>
+      <input type="range" id="r-recul" min="1" max="10" step="1"></label>
 
     <h3>Lecture</h3>
     <label class="curseur"><span>Vitesse <output id="r-vitesse-val"></output></span>
@@ -93,7 +96,7 @@
 
     <h3>Aide</h3>
     <ul class="aide">
-      <li><b>Pédale</b> : pause / reprise. Elle ne fait jamais apparaître la barre de commandes.</li>
+      <li><b>Pédale</b> : un bouton pour pause / reprise, l'autre pour revenir en arrière (un appui = quelques lignes, appui maintenu = remonte en continu). Elle ne fait jamais apparaître la barre de commandes.</li>
       <li><b>Toucher l'écran</b> : afficher ou masquer la barre de commandes. Pendant la lecture, elle disparaît seule au bout de 3 secondes.</li>
       <li><b>Glisser du doigt</b> pendant la pause : remonter ou avancer dans le texte.</li>
       <li><b>La pédale ne répond pas ?</b> Touche l'écran une fois, vérifie qu'aucun clavier n'est affiché à l'écran, puis refais « Apprendre ma pédale ».</li>

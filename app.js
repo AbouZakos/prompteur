@@ -19,6 +19,9 @@
   var VITESSE_MAX = 400;
   var PAS_VITESSE = 5;
   var DELAI_BARRE_MS = 3000;  // la barre de commandes disparaît 3 s après le départ
+  var DUREE_SAUT_RECUL_S = 0.3;       // un appui sur « retour » remonte en 0,3 s
+  var DELAI_MAINTIEN_RECUL_MS = 500;  // au-delà, bouton maintenu : on remonte en continu
+  var LIGNES_PAR_S_MAINTIEN = 8;
 
   // Touches envoyées par les pédales « page turner » (elles se comportent comme un clavier).
   var TOUCHES_DEFAUT = [' ', 'Spacebar', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
@@ -37,7 +40,9 @@
     theme: 'sombre',
     ligneLecture: true,
     decompte: true,
-    pedale: null          // { key, code, keyCode } une fois apprise
+    pedale: null,         // bouton pause / reprise : { key, code, keyCode } une fois appris
+    pedaleRecul: null,    // bouton retour en arrière (2e bouton de la pédale, facultatif)
+    reculLignes: 3        // lignes remontées à chaque appui sur « retour »
   };
 
   // Vidéo MP4 muette de 2 s (16×16 px), jouée en boucle : empêche la mise en veille (méthode NoSleep.js).
@@ -227,6 +232,8 @@
     derniereSauvegarde: 0,
     apprentissage: false,
     minuterieApprentissage: null,
+    finEtape1: 0,
+    dernierRecul: 0,
     minuterieBarre: null,
     scriptId: null,
     accueil: true
@@ -264,7 +271,7 @@
     if (!etat.lecture) return;
     var dt = etat.dernierT ? Math.min((t - etat.dernierT) / 1000, 0.1) : 0;
     etat.dernierT = t;
-    etat.pos += reglages.vitesse * dt;
+    if (!recul.raf) etat.pos += reglages.vitesse * dt;
     if (etat.pos >= etat.max) {
       etat.pos = etat.max;
       appliquerPosition();
@@ -360,6 +367,55 @@
     memoriserPosition();
   }
 
+  // ---------- Retour en arrière (2e bouton de la pédale) ----------
+  // Chaque appui remonte de quelques lignes ; un appui maintenu remonte en continu.
+  // La lecture continue (ou reste en pause) comme avant l'appui.
+
+  var recul = { raf: 0, restant: 0, vitesseSaut: 0, maintenu: false, debut: 0, dernierT: 0 };
+
+  function hauteurLigne() { return reglages.taille * reglages.interligne; }
+
+  function commencerRecul() {
+    if (!etat.scriptId) return;
+    recul.restant += hauteurLigne() * reglages.reculLignes;
+    recul.vitesseSaut = recul.restant / DUREE_SAUT_RECUL_S;
+    recul.maintenu = true;
+    recul.debut = performance.now();
+    if (!recul.raf) {
+      recul.dernierT = 0;
+      recul.raf = requestAnimationFrame(boucleRecul);
+    }
+  }
+
+  function arreterRecul() { recul.maintenu = false; }
+
+  function annulerRecul() {
+    cancelAnimationFrame(recul.raf);
+    recul.raf = 0;
+    recul.restant = 0;
+    recul.maintenu = false;
+  }
+
+  function boucleRecul(t) {
+    var dt = recul.dernierT ? Math.min((t - recul.dernierT) / 1000, 0.1) : 0;
+    recul.dernierT = t;
+    var pas = Math.min(recul.restant, recul.vitesseSaut * dt);
+    recul.restant -= pas;
+    var maintien = performance.now() - recul.debut;
+    if (maintien > 15000) recul.maintenu = false;   // sécurité si le relâchement n'arrive jamais
+    if (recul.maintenu && maintien > DELAI_MAINTIEN_RECUL_MS) pas += hauteurLigne() * LIGNES_PAR_S_MAINTIEN * dt;
+    etat.pos = Math.max(0, etat.pos - pas);
+    if (etat.pos === 0) { recul.restant = 0; recul.maintenu = false; }
+    appliquerPosition();
+    if (recul.restant > 0.5 || recul.maintenu) {
+      recul.raf = requestAnimationFrame(boucleRecul);
+      return;
+    }
+    recul.raf = 0;
+    recul.restant = 0;
+    memoriserPosition();
+  }
+
   function changerVitesse(delta) {
     reglages.vitesse = borner(reglages.vitesse + delta, VITESSE_MIN, VITESSE_MAX);
     sauverReglages();
@@ -389,7 +445,8 @@
     { id: 'r-taille', cle: 'taille', format: function (v) { return v + ' px'; } },
     { id: 'r-arabe', cle: 'tailleArabe', format: function (v) { return '× ' + virgule(v, 2); } },
     { id: 'r-interligne', cle: 'interligne', format: function (v) { return virgule(v, 2); } },
-    { id: 'r-marges', cle: 'marges', format: function (v) { return v + ' %'; } }
+    { id: 'r-marges', cle: 'marges', format: function (v) { return v + ' %'; } },
+    { id: 'r-recul', cle: 'reculLignes', format: function (v) { return v + (v > 1 ? ' lignes' : ' ligne'); } }
   ];
   var INTERRUPTEURS = [
     { id: 'r-decompte', cle: 'decompte' },
@@ -448,36 +505,51 @@
     return 'code ' + p.keyCode;
   }
 
+  function correspond(e, p) {
+    if (p.key && p.key !== 'Unidentified') return e.key === p.key && (!p.code || !e.code || e.code === p.code);
+    return e.keyCode === p.keyCode;
+  }
+
+  function estToucheRecul(e) {
+    return !!reglages.pedaleRecul && correspond(e, reglages.pedaleRecul);
+  }
+
   function estTouchePedale(e) {
-    var p = reglages.pedale;
-    if (p) {
-      if (p.key && p.key !== 'Unidentified') {
-        return e.key === p.key && (!p.code || !e.code || e.code === p.code);
-      }
-      return e.keyCode === p.keyCode;
-    }
+    if (estToucheRecul(e)) return false;
+    if (reglages.pedale) return correspond(e, reglages.pedale);
     if (TOUCHES_DEFAUT.indexOf(e.key) >= 0) return true;
     return (!e.key || e.key === 'Unidentified') && CODES_DEFAUT.indexOf(e.keyCode) >= 0;
   }
 
   function majEtatPedale() {
-    if (etat.apprentissage) {
-      el.pedaleEtat.textContent = 'Appuie maintenant sur ta pédale…';
+    el.btnApprendre.classList.toggle('actif', !!etat.apprentissage);
+    if (etat.apprentissage === 'pause') {
+      el.pedaleEtat.textContent = '1/2 — Appuie sur le bouton de la pédale qui doit faire PAUSE / REPRISE…';
       el.btnApprendre.textContent = 'Annuler';
-      el.btnApprendre.classList.add('actif');
+      return;
+    }
+    if (etat.apprentissage === 'recul') {
+      el.pedaleEtat.textContent = '2/2 — Appuie maintenant sur le bouton qui doit faire RETOUR EN ARRIÈRE…';
+      el.btnApprendre.textContent = 'Pas de 2e bouton';
       return;
     }
     el.btnApprendre.textContent = 'Apprendre ma pédale';
-    el.btnApprendre.classList.remove('actif');
-    el.pedaleEtat.textContent = reglages.pedale
-      ? 'Pédale réglée : seule la touche « ' + nomTouche(reglages.pedale) + ' » met en pause / relance.'
-      : 'Réglage actuel : Espace, Entrée, flèches, Page précédente et Page suivante mettent en pause / relancent.';
+    el.pedaleEtat.textContent = (reglages.pedale
+      ? 'Pause / reprise : « ' + nomTouche(reglages.pedale) + ' ».'
+      : 'Pause / reprise : Espace, Entrée, flèches, Page précédente ou Page suivante.') +
+      (reglages.pedaleRecul
+        ? ' Retour en arrière : « ' + nomTouche(reglages.pedaleRecul) + ' ».'
+        : ' Retour en arrière : aucun bouton réglé.');
+  }
+
+  function relancerMinuterieApprentissage() {
+    clearTimeout(etat.minuterieApprentissage);
+    etat.minuterieApprentissage = setTimeout(arreterApprentissage, 20000);
   }
 
   function commencerApprentissage() {
-    etat.apprentissage = true;
-    clearTimeout(etat.minuterieApprentissage);
-    etat.minuterieApprentissage = setTimeout(arreterApprentissage, 20000);
+    etat.apprentissage = 'pause';
+    relancerMinuterieApprentissage();
     majEtatPedale();
     // Le bouton garde le focus, sinon : le clavier d'iPad pourrait viser un curseur.
     el.btnApprendre.blur();
@@ -490,13 +562,40 @@
     majEtatPedale();
   }
 
-  function enregistrerPedale(e) {
-    reglages.pedale = { key: e.key || '', code: e.code || '', keyCode: e.keyCode || 0 };
+  function toucheDe(e) { return { key: e.key || '', code: e.code || '', keyCode: e.keyCode || 0 }; }
+
+  // Étape 1 : bouton pause / reprise. Étape 2 : bouton retour en arrière (facultatif).
+  function apprendreTouche(e) {
+    var maintenant = Date.now();
+    if (etat.apprentissage === 'pause') {
+      reglages.pedale = toucheDe(e);
+      reglages.pedaleRecul = null;
+      sauverReglages();
+      etat.apprentissage = 'recul';
+      etat.finEtape1 = maintenant;
+      relancerMinuterieApprentissage();
+      majEtatPedale();
+      return;
+    }
+    // Certaines pédales envoient deux touches par appui : on ignore ce qui suit de trop près.
+    if (maintenant - etat.finEtape1 < 400) return;
+    if (correspond(e, reglages.pedale)) {
+      el.pedaleEtat.textContent = 'Ça, c’est le bouton pause. Appuie sur l’AUTRE bouton de la pédale…';
+      return;
+    }
+    reglages.pedaleRecul = toucheDe(e);
     sauverReglages();
-    // Certaines pédales envoient deux touches : le 2e événement ne doit pas lancer la lecture.
+    etat.dernierAppui = maintenant;
+    arreterApprentissage();
+    afficherMessage('Pédale enregistrée : pause « ' + nomTouche(reglages.pedale) +
+      ' », retour « ' + nomTouche(reglages.pedaleRecul) + ' »');
+  }
+
+  function terminerSansRecul() {
+    // Le 2e bouton n'est pas réglé : ce premier appui ne doit pas lancer la lecture.
     etat.dernierAppui = Date.now();
     arreterApprentissage();
-    afficherMessage('Pédale enregistrée : ' + nomTouche(reglages.pedale));
+    afficherMessage('Pédale enregistrée : « ' + nomTouche(reglages.pedale) + ' »');
   }
 
   function estChampSaisie(cible) {
@@ -509,14 +608,30 @@
 
   function surToucheEnfoncee(e) {
     if (etat.apprentissage) {
-      if (e.key === 'Escape') { arreterApprentissage(); return; }
+      if (e.key === 'Escape') {
+        if (etat.apprentissage === 'recul') terminerSansRecul();
+        else arreterApprentissage();
+        return;
+      }
       if (MODIFICATEURS.indexOf(e.key) >= 0) return;
       e.preventDefault();
-      if (!e.repeat) enregistrerPedale(e);
+      if (!e.repeat) apprendreTouche(e);
       return;
     }
     if (estChampSaisie(e.target)) return;
     if (e.key === 'Escape') { fermerPanneaux(); return; }
+
+    if (estToucheRecul(e)) {
+      e.preventDefault();
+      if (e.repeat) return;
+      var instant = Date.now();
+      if (instant - etat.dernierRecul < 150) return;   // double envoi de certaines pédales
+      etat.dernierRecul = instant;
+      if (etat.accueil) masquerAccueil();
+      if (panneauOuvert()) { fermerPanneaux(); return; }
+      commencerRecul();
+      return;
+    }
     if (!estTouchePedale(e)) return;
 
     e.preventDefault();   // Espace ne doit ni faire défiler la page ni « cliquer » un bouton
@@ -532,6 +647,7 @@
 
   function surToucheRelachee(e) {
     if (etat.apprentissage || estChampSaisie(e.target)) return;
+    if (estToucheRecul(e)) { e.preventDefault(); arreterRecul(); return; }
     if (estTouchePedale(e)) e.preventDefault();
   }
 
@@ -631,6 +747,7 @@
 
   function chargerScript(script) {
     pause();
+    annulerRecul();
     etat.scriptId = script.id;
     try { localStorage.setItem(CLE_DERNIER, script.id); } catch (e) { /* stockage plein ou bloqué */ }
     afficherTexte(script.texte);
@@ -641,6 +758,21 @@
     etat.pos = ratio * etat.max;
     appliquerPosition();
     document.title = 'Prompteur — ' + script.titre;
+  }
+
+  // Bouton « Fermer » de la barre : ferme le texte et affiche la liste des scripts.
+  function fermerScript() {
+    pause();
+    annulerRecul();
+    memoriserPosition();
+    etat.scriptId = null;
+    // Chaîne vide = fermé exprès : au prochain lancement, aucun script ne se rouvre seul.
+    try { localStorage.setItem(CLE_DERNIER, ''); } catch (e) { /* stockage bloqué */ }
+    afficherVide();
+    etat.pos = 0;
+    mesurer();
+    document.title = 'Prompteur';
+    ouvrirPanneau(el.panneauScripts);
   }
 
   function ouvrirScript(id) {
@@ -990,6 +1122,7 @@
     $('btn-plus').addEventListener('click', function () { changerVitesse(PAS_VITESSE); });
     $('btn-reglages').addEventListener('click', function () { ouvrirPanneau(el.panneauReglages); });
     $('btn-scripts').addEventListener('click', function () { ouvrirPanneau(el.panneauScripts); });
+    $('btn-fermer').addEventListener('click', fermerScript);
     $('btn-nouveau').addEventListener('click', function () { ouvrirPanneau(el.panneauImport); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-fermer]'), function (b) {
       b.addEventListener('click', fermerPanneaux);
@@ -1024,14 +1157,16 @@
     });
 
     el.btnApprendre.addEventListener('click', function () {
-      if (etat.apprentissage) arreterApprentissage();
+      if (etat.apprentissage === 'recul') terminerSansRecul();
+      else if (etat.apprentissage) arreterApprentissage();
       else commencerApprentissage();
     });
     $('btn-oublier').addEventListener('click', function () {
       reglages.pedale = null;
+      reglages.pedaleRecul = null;
       sauverReglages();
       arreterApprentissage();
-      afficherMessage('Toutes les touches usuelles fonctionnent à nouveau');
+      afficherMessage('Réglage par défaut : toutes les touches usuelles font pause / reprise');
     });
 
     $('icloud-fichier').addEventListener('change', function (e) {
@@ -1055,7 +1190,7 @@
     window.addEventListener('resize', mesurer);
     window.addEventListener('orientationchange', function () { setTimeout(mesurer, 300); });
     document.addEventListener('visibilitychange', function () {
-      if (document.hidden) { if (etat.lecture || etat.decompte) pause(); memoriserPosition(); }
+      if (document.hidden) { if (etat.lecture || etat.decompte) pause(); annulerRecul(); memoriserPosition(); }
       else if (videoVeille) activerEcran();
     });
     window.addEventListener('pagehide', memoriserPosition);
@@ -1070,6 +1205,7 @@
     return Stock.tous().then(function (liste) {
       var dernier = null;
       try { dernier = localStorage.getItem(CLE_DERNIER); } catch (e) { /* rien */ }
+      if (dernier === '') { afficherVide(); return; }   // fermé avec le bouton « Fermer »
       var script = liste.filter(function (s) { return s.id === dernier; })[0];
       if (!script && liste.length) {
         liste.sort(function (a, b) { return b.maj - a.maj; });
